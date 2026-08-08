@@ -1,0 +1,14 @@
+{
+  "name": "lobster-ai-desktop",
+  "version": "1.0.0",
+  "description": "AI Lobster Desktop Assistant",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.3.0"
+  }
+}
