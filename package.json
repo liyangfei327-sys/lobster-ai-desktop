@@ -1,13 +1,12 @@
 {
   "name": "dsh-lobster-ai",
-  "version": "0.1.0",
-  "description": "Lobster AI plugin bundle for DeepSeek Harness",
-  "type": "module",
+  "version": "0.2.0",
+  "description": "Lobster AI desktop pet bundle for DeepSeek Harness",
   "main": "index.js",
-  "files": [
-    "index.js",
-    "cordis.patch.yml"
-  ],
+  "files": ["index.js","cordis.patch.yml","main.js","preload.js","index.html","assets"],
+  "dependencies": {
+    "electron": "^43.3.0"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

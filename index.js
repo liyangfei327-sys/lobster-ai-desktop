@@ -1,9 +1,30 @@
-export const name = 'lobster-ai'
+const { spawn } = require('child_process');
+const path = require('path');
 
-export function apply(ctx) {
-  console.log('[Lobster AI] DeepSeek Harness plugin loaded')
+let child = null;
 
-  // 最小可安装插件入口。
-  // 下一步可以在这里接入 Electron 桌宠、OpenClaw、
-  // DeepSeek API、MCP 工具或本地消息通信。
-}
+exports.name = 'lobster-ai';
+
+exports.apply = function apply(ctx) {
+  try {
+    const electronPath = require('electron');
+    const appEntry = path.join(__dirname, 'main.js');
+
+    child = spawn(electronPath, [appEntry], {
+      cwd: __dirname,
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    child.unref();
+    console.log('[Lobster AI] Desktop pet launched');
+  } catch (error) {
+    console.error('[Lobster AI] Failed to launch desktop pet:', error);
+  }
+};
+
+exports.dispose = function dispose() {
+  if (child && !child.killed) {
+    try { child.kill(); } catch {}
+  }
+};

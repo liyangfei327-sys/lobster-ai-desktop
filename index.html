@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="
+      default-src 'self';
+      img-src 'self' data:;
+      style-src 'self' 'unsafe-inline';
+      script-src 'self' 'unsafe-inline';
+    "
+  />
+
+  <title>Lobster AI</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      font-family: Arial, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      position: relative;
+      -webkit-app-region: drag;
+    }
+
+    .chat-box {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      width: 330px;
+      padding: 12px;
+      transform: translateX(-50%);
+      display: none;
+      background: rgba(255, 255, 255, 0.97);
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+      -webkit-app-region: no-drag;
+      z-index: 20;
+    }
+
+    .chat-box.show {
+      display: block;
+    }
+
+    .message {
+      min-height: 64px;
+      max-height: 150px;
+      margin-bottom: 10px;
+      padding: 11px;
+      overflow-y: auto;
+      color: #222;
+      background: #f1f1f1;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid #c9c9c9;
+      border-radius: 10px;
+      outline: none;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 9px 15px;
+      border: 0;
+      border-radius: 10px;
+      color: white;
+      background: #e74c3c;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+      to {
+        scale: 1.08;
+      }
+    }
+
+    .pet-area {
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      width: 210px;
+      height: 210px;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      -webkit-app-region: no-drag;
+    }
+
+    .lobster {
+      display: block;
+      width: 190px;
+      height: 190px;
+      object-fit: contain;
+      cursor: grab;
+      transform-origin: center center;
+      filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.3));
+      animation: lobsterWalk 0.42s infinite ease-in-out;
+      -webkit-app-region: no-drag;
+      -webkit-user-drag: none;
+      user-select: none;
+    }
+
+    @keyframes lobsterWalk {
+  0% {
+    translate: -3px 0;
+    scale: 1 1;
+  }
+
+  25% {
+    translate: 0 -4px;
+    scale: 1.02 0.98;
+  }
+
+  50% {
+    translate: 3px 0;
+    scale: 1 1;
+  }
+
+  75% {
+    translate: 0 -2px;
+    scale: 0.98 1.02;
+  }
+
+  100% {
+    translate: -3px 0;
+    scale: 1 1;
+  }
+}
+.lobster.paused {
+  animation-play-state: paused;
+}
+
+.lobster.dragging {
+  cursor: grabbing;
+  animation-play-state: paused;
+}
+
+.lobster.reply-jump {
+  animation: replyJump 0.58s ease-out !important;
+}
+
+@keyframes replyJump {
+  0% {
+    translate: 0 0;
+  }
+
+  35% {
+    translate: 0 -24px;
+  }
+
+  65% {
+    translate: 0 -8px;
+  }
+
+  100% {
+    translate: 0 0;
+  }
+}
+    .lobster-menu {
+      position: absolute;
+      display: none;
+      width: 190px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 14px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.3);
+      z-index: 100;
+      -webkit-app-region: no-drag;
+    }
+
+    .lobster-menu.show {
+      display: block;
+    }
+
+    .menu-title {
+      padding: 8px 10px;
+      font-weight: bold;
+      color: #222;
+    }
+
+    .menu-line {
+      height: 1px;
+      margin: 5px 0;
+      background: #ddd;
+    }
+
+    .lobster-menu button {
+      display: block;
+      width: 100%;
+      padding: 9px 10px;
+      border: none;
+      border-radius: 8px;
+      color: #222;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .lobster-menu button:hover {
+      background: #eeeeee;
+    }
+  </style>
+</head>
+
+<body>
+  <section id="chatBox" class="chat-box">
+    <div id="message" class="message">
+      你好，我是 Lobster AI！
+    </div>
+
+    <div class="input-row">
+      <input
+        id="userInput"
+        type="text"
+        placeholder="输入消息..."
+      />
+
+      <button id="sendButton" type="button">
+        发送
+      </button>
+    </div>
+  </section>
+
+  <div class="pet-area">
+    <img
+      id="lobster"
+      class="lobster"
+      src="./assets/lobster-open.png"
+      alt=""
+      draggable="false"
+    />
+  </div>
+
+  <div id="lobsterMenu" class="lobster-menu">
+    <div class="menu-title">🦞 Lobster AI</div>
+
+    <div class="menu-line"></div>
+
+    <button data-action="chat">💬 聊天</button>
+    <button data-action="translate">🌐 翻译</button>
+    <button data-action="screenshot">📷 截图</button>
+    <button data-action="telegram">📨 打开 Telegram</button>
+    <button data-action="clear-memory">🧠 清除记忆</button>
+
+    <div class="menu-line"></div>
+
+    <button data-action="quit">❌ 退出</button>
+  </div>
+
+  <script>
+    const lobster = document.getElementById("lobster");
+    const chatBox = document.getElementById("chatBox");
+    const lobsterMenu = document.getElementById("lobsterMenu");
+    const message = document.getElementById("message");
+    const userInput = document.getElementById("userInput");
+    const sendButton = document.getElementById("sendButton");
+
+    const emotions = {
+      open: "./assets/lobster-open.png",
+      blink: "./assets/lobster-blink.png",
+      left: "./assets/lobster-left.png",
+      right: "./assets/lobster-right.png",
+      happy: "./assets/lobster-happy.png",
+      angry: "./assets/lobster-angry.png",
+      thinking: "./assets/lobster-thinking.png"
+    };
+const walkFrames = [
+  "./assets/walk-1.png",
+  "./assets/walk-2.png",
+  "./assets/walk-3.png",
+  "./assets/walk-4.png"
+];
+
+let walkTimer = null;
+let walkFrameIndex = 0;
+let emotionResetTimer = null;
+let sleepTimer = null;
+let isSleeping = false;
+const SLEEP_DELAY = 3 * 60 * 1000;
+
+let lookResetTimer = null;
+let lastMouseX = null;
+let lastMouseY = null;
+const LOOK_DISTANCE = 260;
+const CLOSE_DISTANCE = 120;
+
+let behaviorTimer = null;
+let behaviorBusy = false;
+let userActivityVersion = 0;
+
+let rapidClickTimes = [];
+let ignoreClicksUntil = 0;
+
+    let currentEmotion = "open";
+    function showWalkFrame() {
+  lobster.src = walkFrames[walkFrameIndex];
+}
+
+function startWalkCycle() {
+  if (walkTimer) {
+    return;
+  }
+
+  if (chatBox.classList.contains("show")) {
+    return;
+  }
+
+  showWalkFrame();
+
+  walkTimer = setInterval(() => {
+    if (currentEmotion !== "open") {
+      return;
+    }
+
+    if (chatBox.classList.contains("show")) {
+      return;
+    }
+
+    walkFrameIndex =
+      (walkFrameIndex + 1) % walkFrames.length;
+
+    showWalkFrame();
+  }, 160);
+}
+
+function stopWalkCycle() {
+  if (walkTimer) {
+    clearInterval(walkTimer);
+    walkTimer = null;
+  }
+}
+
+function setEmotion(name) {
+  if (!emotions[name]) {
+    return;
+  }
+
+  currentEmotion = name;
+
+  if (name !== "open") {
+    stopWalkCycle();
+    lobster.src = emotions[name];
+    lobster.classList.add("paused");
+    return;
+  }
+
+  if (chatBox.classList.contains("show")) {
+    stopWalkCycle();
+    lobster.src = emotions.open;
+    lobster.classList.add("paused");
+    return;
+  }
+
+  lobster.classList.remove("paused");
+  startWalkCycle();
+}
+
+function resetEmotionLater(delay) {
+  if (emotionResetTimer) {
+    clearTimeout(emotionResetTimer);
+  }
+
+  emotionResetTimer = setTimeout(() => {
+    setEmotion("open");
+  }, delay);
+}
+
+
+
+function markUserActivity() {
+  userActivityVersion += 1;
+  resetSleepTimer();
+  scheduleIdleBehavior();
+}
+
+function isHeadClick(event) {
+  const rect =
+    lobster.getBoundingClientRect();
+
+  const relativeY =
+    (event.clientY - rect.top) /
+    rect.height;
+
+  const relativeX =
+    (event.clientX - rect.left) /
+    rect.width;
+
+  return (
+    relativeY >= 0 &&
+    relativeY <= 0.46 &&
+    relativeX >= 0.18 &&
+    relativeX <= 0.82
+  );
+}
+
+async function showHappyReaction(duration = 1200) {
+  if (isSleeping) {
+    await wakeUp({
+      resumePatrol: false
+    });
+  }
+
+  const shouldResume =
+    !chatBox.classList.contains("show") &&
+    !isManuallyPaused;
+
+  await window.lobsterAI.setPatrolling(false);
+  stopWalkCycle();
+
+  lobster.classList.add("paused");
+  currentEmotion = "happy";
+  lobster.src = emotions.happy;
+
+  await wait(duration);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+
+  if (shouldResume) {
+    lobster.classList.remove("paused");
+    setEmotion("open");
+    await window.lobsterAI.setPatrolling(true);
+  }
+}
+
+async function showAngryReaction() {
+  const shouldResume =
+    !chatBox.classList.contains("show") &&
+    !isManuallyPaused;
+
+  await window.lobsterAI.setPatrolling(false);
+  stopWalkCycle();
+
+  lobster.classList.add("paused");
+  currentEmotion = "angry";
+  lobster.src = emotions.angry;
+
+  await wait(1800);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+
+  if (shouldResume) {
+    lobster.classList.remove("paused");
+    setEmotion("open");
+    await window.lobsterAI.setPatrolling(true);
+  }
+}
+
+async function playReplyJump() {
+  lobster.classList.remove("reply-jump");
+  void lobster.offsetWidth;
+  lobster.classList.add("reply-jump");
+
+  await wait(620);
+
+  lobster.classList.remove("reply-jump");
+}
+
+async function playStartupWelcome() {
+  behaviorBusy = true;
+
+  stopWalkCycle();
+  lobster.classList.add("paused");
+
+  currentEmotion = "happy";
+  lobster.src = emotions.happy;
+  await wait(650);
+
+  currentEmotion = "left";
+  lobster.src = emotions.left;
+  await wait(350);
+
+  currentEmotion = "right";
+  lobster.src = emotions.right;
+  await wait(350);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+
+  behaviorBusy = false;
+  lobster.classList.remove("paused");
+  setEmotion("open");
+}
+
+function canRunIdleBehavior() {
+  return (
+    !behaviorBusy &&
+    !isSleeping &&
+    !chatBox.classList.contains("show") &&
+    !isDraggingWindow &&
+    !isManuallyPaused &&
+    currentEmotion !== "thinking" &&
+    currentEmotion !== "happy" &&
+    currentEmotion !== "angry"
+  );
+}
+
+function clearBehaviorTimer() {
+  if (behaviorTimer) {
+    clearTimeout(behaviorTimer);
+    behaviorTimer = null;
+  }
+}
+
+function scheduleIdleBehavior() {
+  clearBehaviorTimer();
+
+  const delay =
+    25000 + Math.random() * 20000;
+
+  behaviorTimer = setTimeout(async () => {
+    if (!canRunIdleBehavior()) {
+      scheduleIdleBehavior();
+      return;
+    }
+
+    const roll = Math.random();
+
+    if (roll < 0.35) {
+      await idleLookAround();
+    } else if (roll < 0.60) {
+      await idleHappyMoment();
+    } else if (roll < 0.80) {
+      await idleShortRest();
+    } else {
+      await idleCornerRest();
+    }
+
+    scheduleIdleBehavior();
+  }, delay);
+}
+
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function idleLookAround() {
+  if (!canRunIdleBehavior()) {
+    return;
+  }
+
+  behaviorBusy = true;
+
+  await window.lobsterAI.setPatrolling(false);
+  stopWalkCycle();
+  lobster.classList.add("paused");
+
+  currentEmotion = "left";
+  lobster.src = emotions.left;
+  await wait(700);
+
+  currentEmotion = "right";
+  lobster.src = emotions.right;
+  await wait(700);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+  await wait(350);
+
+  behaviorBusy = false;
+
+  if (
+    !isSleeping &&
+    !chatBox.classList.contains("show") &&
+    !isManuallyPaused
+  ) {
+    lobster.classList.remove("paused");
+    setEmotion("open");
+    await window.lobsterAI.setPatrolling(true);
+  }
+}
+
+async function idleHappyMoment() {
+  if (!canRunIdleBehavior()) {
+    return;
+  }
+
+  behaviorBusy = true;
+
+  await window.lobsterAI.setPatrolling(false);
+  stopWalkCycle();
+  lobster.classList.add("paused");
+
+  currentEmotion = "happy";
+  lobster.src = emotions.happy;
+  await wait(1200);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+
+  behaviorBusy = false;
+
+  if (
+    !isSleeping &&
+    !chatBox.classList.contains("show") &&
+    !isManuallyPaused
+  ) {
+    lobster.classList.remove("paused");
+    setEmotion("open");
+    await window.lobsterAI.setPatrolling(true);
+  }
+}
+
+async function idleShortRest() {
+  if (!canRunIdleBehavior()) {
+    return;
+  }
+
+  behaviorBusy = true;
+
+  await window.lobsterAI.setPatrolling(false);
+  stopWalkCycle();
+  lobster.classList.add("paused");
+
+  currentEmotion = "blink";
+  lobster.src = emotions.blink;
+
+  const restTime =
+    2000 + Math.random() * 3000;
+
+  await wait(restTime);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+
+  behaviorBusy = false;
+
+  if (
+    !isSleeping &&
+    !chatBox.classList.contains("show") &&
+    !isManuallyPaused
+  ) {
+    lobster.classList.remove("paused");
+    setEmotion("open");
+    await window.lobsterAI.setPatrolling(true);
+  }
+}
+
+async function idleCornerRest() {
+  if (!canRunIdleBehavior()) {
+    return;
+  }
+
+  behaviorBusy = true;
+
+  const activityVersionAtStart =
+    userActivityVersion;
+
+  await window.lobsterAI.setPatrolling(false);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+  lobster.classList.remove("paused");
+  startWalkCycle();
+
+  await window.lobsterAI.moveToNearestCorner();
+
+  if (
+    activityVersionAtStart !==
+    userActivityVersion
+  ) {
+    behaviorBusy = false;
+    return;
+  }
+
+  stopWalkCycle();
+  lobster.classList.add("paused");
+  currentEmotion = "blink";
+  lobster.src = emotions.blink;
+
+  const restTime =
+    10000 + Math.random() * 10000;
+
+  await wait(restTime);
+
+  if (
+    activityVersionAtStart !==
+    userActivityVersion
+  ) {
+    behaviorBusy = false;
+    return;
+  }
+
+  currentEmotion = "happy";
+  lobster.src = emotions.happy;
+  await wait(800);
+
+  if (
+    activityVersionAtStart !==
+    userActivityVersion
+  ) {
+    behaviorBusy = false;
+    return;
+  }
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+  behaviorBusy = false;
+
+  if (
+    !isSleeping &&
+    !chatBox.classList.contains("show") &&
+    !isManuallyPaused
+  ) {
+    lobster.classList.remove("paused");
+    setEmotion("open");
+    await window.lobsterAI.setPatrolling(true);
+  }
+}
+
+
+function resetSleepTimer() {
+  if (sleepTimer) {
+    clearTimeout(sleepTimer);
+  }
+
+  if (isSleeping) {
+    return;
+  }
+
+  sleepTimer = setTimeout(() => {
+    enterSleepMode();
+  }, SLEEP_DELAY);
+}
+
+async function enterSleepMode() {
+  if (isSleeping) {
+    return;
+  }
+
+  if (
+    chatBox.classList.contains("show") ||
+    isDraggingWindow ||
+    behaviorBusy ||
+    currentEmotion === "thinking"
+  ) {
+    resetSleepTimer();
+    return;
+  }
+
+  clearBehaviorTimer();
+
+  if (emotionResetTimer) {
+    clearTimeout(emotionResetTimer);
+    emotionResetTimer = null;
+  }
+
+  await window.lobsterAI.setPatrolling(false);
+  stopWalkCycle();
+  lobster.classList.add("paused");
+
+  currentEmotion = "blink";
+  lobster.src = emotions.blink;
+  await wait(220);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+  await wait(260);
+
+  currentEmotion = "blink";
+  lobster.src = emotions.blink;
+  await wait(220);
+
+  isSleeping = true;
+  currentEmotion = "blink";
+  lobster.src = emotions.blink;
+}
+
+async function wakeUp({ resumePatrol = true } = {}) {
+  if (sleepTimer) {
+    clearTimeout(sleepTimer);
+    sleepTimer = null;
+  }
+
+  if (!isSleeping) {
+    resetSleepTimer();
+    return false;
+  }
+
+  isSleeping = false;
+
+  stopWalkCycle();
+  lobster.classList.add("paused");
+  currentEmotion = "happy";
+  lobster.src = emotions.happy;
+  await wait(700);
+
+  currentEmotion = "open";
+  lobster.src = emotions.open;
+
+  if (
+    resumePatrol &&
+    !chatBox.classList.contains("show") &&
+    !isManuallyPaused
+  ) {
+    lobster.classList.remove("paused");
+    setEmotion("open");
+    await window.lobsterAI.setPatrolling(true);
+  } else {
+    stopWalkCycle();
+    lobster.classList.add("paused");
+    await window.lobsterAI.setPatrolling(false);
+  }
+
+  resetSleepTimer();
+  scheduleIdleBehavior();
+  return true;
+}
+
+
+    function restoreLookAfterDelay() {
+      if (lookResetTimer) {
+        clearTimeout(lookResetTimer);
+      }
+
+      lookResetTimer = setTimeout(async () => {
+        if (
+          !isSleeping &&
+          !chatBox.classList.contains("show") &&
+          !isDraggingWindow &&
+          currentEmotion !== "thinking" &&
+          currentEmotion !== "happy" &&
+          currentEmotion !== "angry"
+        ) {
+          currentEmotion = "open";
+
+          if (isManuallyPaused) {
+            stopWalkCycle();
+            lobster.classList.add("paused");
+            lobster.src = emotions.open;
+            await window.lobsterAI.setPatrolling(false);
+          } else {
+            lobster.classList.remove("paused");
+            setEmotion("open");
+            await window.lobsterAI.setPatrolling(true);
+          }
+        }
+      }, 700);
+    }
+
+    function updateLookDirection(mouseX, mouseY) {
+      if (
+        isSleeping ||
+        chatBox.classList.contains("show") ||
+        isDraggingWindow ||
+        currentEmotion === "thinking" ||
+        currentEmotion === "happy" ||
+        currentEmotion === "angry"
+      ) {
+        return;
+      }
+
+      const rect =
+        lobster.getBoundingClientRect();
+
+      const centerX =
+        rect.left + rect.width / 2;
+
+      const centerY =
+        rect.top + rect.height / 2;
+
+      const dx =
+        mouseX - centerX;
+
+      const dy =
+        mouseY - centerY;
+
+      const distance =
+        Math.hypot(dx, dy);
+
+      if (distance > LOOK_DISTANCE) {
+        restoreLookAfterDelay();
+        return;
+      }
+
+      stopWalkCycle();
+      lobster.classList.add("paused");
+
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        currentEmotion =
+          dx < 0 ? "left" : "right";
+
+        lobster.src =
+          dx < 0
+            ? emotions.left
+            : emotions.right;
+      } else {
+        currentEmotion = "open";
+        lobster.src = emotions.open;
+      }
+
+      if (distance <= CLOSE_DISTANCE) {
+        window.lobsterAI.setPatrolling(false);
+      }
+
+      restoreLookAfterDelay();
+    }
+
+    document.addEventListener("mousemove", (event) => {
+      lastMouseX = event.clientX;
+      lastMouseY = event.clientY;
+
+      resetSleepTimer();
+
+      const rect =
+        lobster.getBoundingClientRect();
+
+      const centerX =
+        rect.left + rect.width / 2;
+
+      const centerY =
+        rect.top + rect.height / 2;
+
+      const distance =
+        Math.hypot(
+          lastMouseX - centerX,
+          lastMouseY - centerY
+        );
+
+      if (distance <= LOOK_DISTANCE) {
+        scheduleIdleBehavior();
+      }
+
+      updateLookDirection(
+        lastMouseX,
+        lastMouseY
+      );
+    });
+
+    lobster.addEventListener("dragstart", (event) => {
+      event.preventDefault();
+    });
+
+    let dragPointerId = null;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let isDraggingWindow = false;
+    let suppressNextClick = false;
+
+    lobster.addEventListener("pointerdown", async (event) => {
+      if (event.button !== 0) {
+        return;
+      }
+
+      markUserActivity();
+
+      const now = Date.now();
+
+      rapidClickTimes =
+        rapidClickTimes.filter(
+          (time) => now - time <= 1800
+        );
+
+      rapidClickTimes.push(now);
+
+      if (rapidClickTimes.length >= 5) {
+        rapidClickTimes = [];
+        ignoreClicksUntil = now + 1200;
+        suppressNextClick = true;
+
+        if (singleClickTimer) {
+          clearTimeout(singleClickTimer);
+          singleClickTimer = null;
+        }
+
+        showAngryReaction();
+        return;
+      }
+
+      if (isSleeping) {
+        await wakeUp({
+          resumePatrol: false
+        });
+      }
+
+      dragPointerId = event.pointerId;
+      dragStartX = event.screenX;
+      dragStartY = event.screenY;
+      isDraggingWindow = false;
+
+      lobster.setPointerCapture(event.pointerId);
+    });
+
+    lobster.addEventListener("pointermove", (event) => {
+      if (event.pointerId !== dragPointerId) {
+        return;
+      }
+
+      const distance = Math.hypot(
+        event.screenX - dragStartX,
+        event.screenY - dragStartY
+      );
+
+      if (!isDraggingWindow && distance >= 6) {
+        isDraggingWindow = true;
+        suppressNextClick = true;
+
+        stopWalkCycle();
+        lobster.classList.add("dragging");
+
+        window.lobsterAI.beginDrag(
+          dragStartX,
+          dragStartY
+        );
+      }
+
+      if (isDraggingWindow) {
+        window.lobsterAI.moveDrag(
+          event.screenX,
+          event.screenY
+        );
+      }
+    });
+
+    async function finishWindowDrag(event) {
+      if (event.pointerId !== dragPointerId) {
+        return;
+      }
+
+      try {
+        lobster.releasePointerCapture(
+          event.pointerId
+        );
+      } catch {
+        // 指针已经释放时忽略
+      }
+
+      dragPointerId = null;
+
+      if (!isDraggingWindow) {
+        return;
+      }
+
+      isDraggingWindow = false;
+      lobster.classList.remove("dragging");
+
+      const shouldResumePatrol =
+        !chatBox.classList.contains("show");
+
+      await window.lobsterAI.endDrag(
+        shouldResumePatrol
+      );
+
+      if (shouldResumePatrol) {
+        setTimeout(() => {
+          setEmotion("open");
+        }, 1000);
+      }
+
+      resetSleepTimer();
+    }
+
+    lobster.addEventListener(
+      "pointerup",
+      finishWindowDrag
+    );
+
+    lobster.addEventListener(
+      "pointercancel",
+      finishWindowDrag
+    );
+
+    let singleClickTimer = null;
+    let isManuallyPaused = false;
+
+    async function toggleManualPatrol() {
+      if (isSleeping) {
+        isManuallyPaused = false;
+        await wakeUp({
+          resumePatrol: true
+        });
+        return;
+      }
+
+      markUserActivity();
+
+      // 聊天框打开时，单击不切换巡逻
+      if (chatBox.classList.contains("show")) {
+        return;
+      }
+
+      isManuallyPaused = !isManuallyPaused;
+
+      if (isManuallyPaused) {
+        await window.lobsterAI.setPatrolling(false);
+        stopWalkCycle();
+        lobster.classList.add("paused");
+        lobster.src = emotions.open;
+      } else {
+        lobster.classList.remove("paused");
+        setEmotion("open");
+        await window.lobsterAI.setPatrolling(true);
+      }
+    }
+
+    async function toggleChatBox() {
+      markUserActivity();
+
+      if (isSleeping) {
+        await wakeUp({
+          resumePatrol: false
+        });
+      }
+
+      lobsterMenu.classList.remove("show");
+      chatBox.classList.toggle("show");
+
+      const isOpen =
+        chatBox.classList.contains("show");
+
+      if (isOpen) {
+        await window.lobsterAI.setPatrolling(false);
+        stopWalkCycle();
+        lobster.classList.add("paused");
+        lobster.src = emotions.open;
+        userInput.focus();
+        return;
+      }
+
+      if (isManuallyPaused) {
+        await window.lobsterAI.setPatrolling(false);
+        stopWalkCycle();
+        lobster.classList.add("paused");
+        lobster.src = emotions.open;
+      } else {
+        lobster.classList.remove("paused");
+        setEmotion("open");
+        await window.lobsterAI.setPatrolling(true);
+      }
+    }
+
+    // 单击：暂停或继续巡逻
+    lobster.addEventListener("click", (event) => {
+      if (Date.now() < ignoreClicksUntil) {
+        return;
+      }
+
+      if (suppressNextClick) {
+        suppressNextClick = false;
+        return;
+      }
+
+      if (isHeadClick(event)) {
+        if (singleClickTimer) {
+          clearTimeout(singleClickTimer);
+          singleClickTimer = null;
+        }
+
+        showHappyReaction(1200);
+        return;
+      }
+
+      if (singleClickTimer) {
+        clearTimeout(singleClickTimer);
+      }
+
+      singleClickTimer = setTimeout(() => {
+        singleClickTimer = null;
+        toggleManualPatrol();
+      }, 260);
+    });
+
+    // 双击：打开或关闭聊天框
+    lobster.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+
+      if (Date.now() < ignoreClicksUntil) {
+        return;
+      }
+
+      if (singleClickTimer) {
+        clearTimeout(singleClickTimer);
+        singleClickTimer = null;
+      }
+
+      toggleChatBox();
+    });
+
+    function showCustomMenu(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  resetSleepTimer();
+
+  const maxLeft =
+    document.documentElement.clientWidth - 200;
+
+  const maxTop =
+    document.documentElement.clientHeight - 260;
+
+  lobsterMenu.style.left =
+    `${Math.max(8, Math.min(event.clientX, maxLeft))}px`;
+
+  lobsterMenu.style.top =
+    `${Math.max(8, Math.min(event.clientY, maxTop))}px`;
+
+  lobsterMenu.classList.add("show");
+}
+
+// Mac 右键
+lobster.addEventListener("contextmenu", showCustomMenu);
+
+// 备用监听
+lobster.addEventListener("mousedown", (event) => {
+  if (event.button === 2) {
+    showCustomMenu(event);
+  }
+});
+
+    document.addEventListener("click", (event) => {
+      if (
+        !lobsterMenu.contains(event.target) &&
+        event.target !== lobster
+      ) {
+        lobsterMenu.classList.remove("show");
+      }
+    });
+
+    lobsterMenu.addEventListener("click", async (event) => {
+      resetSleepTimer();
+
+      if (isSleeping) {
+        await wakeUp({
+          resumePatrol: false
+        });
+      }
+
+      const button = event.target.closest("button");
+
+      if (!button) {
+        return;
+      }
+
+      const action = button.dataset.action;
+
+      lobsterMenu.classList.remove("show");
+
+      if (action === "chat") {
+        chatBox.classList.add("show");
+        stopWalkCycle();
+        lobster.classList.add("paused");
+        lobster.src = emotions.open;
+        await window.lobsterAI.setPatrolling(false);
+
+        setEmotion("open");
+        message.textContent = "你好，我是 Lobster AI！";
+        userInput.placeholder = "输入消息...";
+        userInput.focus();
+        return;
+      }
+
+      if (action === "translate") {
+        chatBox.classList.add("show");
+        stopWalkCycle();
+        lobster.classList.add("paused");
+        lobster.src = emotions.open;
+        await window.lobsterAI.setPatrolling(false);
+
+        setEmotion("thinking");
+        message.textContent =
+          "请输入需要翻译的内容，并告诉我翻译成什么语言。";
+
+        userInput.placeholder =
+          "例如：翻译成高棉语……";
+
+        userInput.focus();
+        return;
+      }
+
+      if (action === "clear-memory") {
+        const cleared =
+          await window.lobsterAI
+            .runMenuAction(action);
+
+        if (cleared) {
+          message.textContent =
+            "记忆已经清空，我们重新认识吧。";
+
+          setEmotion("happy");
+          resetEmotionLater(1800);
+        } else {
+          message.textContent =
+            "清除记忆失败，请稍后再试。";
+
+          setEmotion("angry");
+          resetEmotionLater(2500);
+        }
+
+        return;
+      }
+
+      await window.lobsterAI.runMenuAction(action);
+    });
+
+    async function sendMessage() {
+  markUserActivity();
+
+  if (isSleeping) {
+    await wakeUp({
+      resumePatrol: false
+    });
+  }
+
+  const text = userInput.value.trim();
+
+  if (!text) {
+    return;
+  }
+
+  userInput.value = "";
+  sendButton.disabled = true;
+
+  setEmotion("thinking");
+  message.textContent = "正在思考……";
+
+  try {
+    const reply =
+      await window.lobsterAI.chat(text);
+
+    setEmotion("happy");
+    message.textContent = reply;
+    await playReplyJump();
+    resetEmotionLater(2000);
+  } catch (error) {
+    console.error(error);
+
+    setEmotion("angry");
+    message.textContent =
+      `连接失败：${error.message}`;
+
+    resetEmotionLater(3000);
+  } finally {
+    sendButton.disabled = false;
+    userInput.focus();
+    resetSleepTimer();
+  }
+}
+
+    sendButton.addEventListener("click", sendMessage);
+
+    userInput.addEventListener("keydown", (event) => {
+      resetSleepTimer();
+
+      if (event.key === "Enter") {
+        sendMessage();
+      }
+    });
+
+    userInput.addEventListener("input", () => {
+      markUserActivity();
+    });
+
+    window.lobsterAI.onEdgeChange((edge) => {
+      // 顶部：向右走
+      if (edge === "top") {
+        lobster.style.transform = "rotate(0deg) scaleX(1)";
+      }
+
+      // 右边：向下走
+      else if (edge === "right") {
+        lobster.style.transform = "rotate(90deg) scaleX(1)";
+      }
+
+      // 底部：向左走，不再倒立，只做水平翻转
+      else if (edge === "bottom") {
+        lobster.style.transform = "rotate(0deg) scaleX(-1)";
+      }
+
+      // 左边：向上走
+      else if (edge === "left") {
+        lobster.style.transform = "rotate(-90deg) scaleX(1)";
+      }
+    });
+
+    function blink() {
+      if (isSleeping) {
+        return;
+      }
+
+      if (
+        currentEmotion !== "open" &&
+        currentEmotion !== "happy"
+      ) {
+        return;
+      }
+
+      const previousEmotion = currentEmotion;
+
+      setEmotion("blink");
+
+      setTimeout(() => {
+        setEmotion(previousEmotion);
+      }, 180);
+    }
+
+    function scheduleBlink() {
+      const delay =
+        4000 + Math.random() * 4000;
+
+      setTimeout(() => {
+        blink();
+        scheduleBlink();
+      }, delay);
+    }
+
+    setEmotion("open");
+    scheduleBlink();
+    resetSleepTimer();
+
+    setTimeout(async () => {
+      await playStartupWelcome();
+      scheduleIdleBehavior();
+    }, 180);
+  </script>
+</body>
+</html>
