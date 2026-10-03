@@ -1,14 +1,16 @@
 {
-  "name": "lobster-ai-desktop",
-  "version": "1.0.0",
-  "description": "AI Lobster Desktop Assistant",
-  "main": "main.js",
-  "scripts": {
-    "start": "electron ."
-  },
-  "author": "",
-  "license": "MIT",
-  "devDependencies": {
-    "electron": "^43.3.0"
+  "name": "dsh-lobster-ai",
+  "version": "0.1.0",
+  "description": "Lobster AI plugin bundle for DeepSeek Harness",
+  "type": "module",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
   }
 }
