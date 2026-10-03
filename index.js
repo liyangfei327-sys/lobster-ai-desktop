@@ -16,8 +16,12 @@ function log(message) {
 function findLocalProject() {
   const home = process.env.HOME || ''
   const candidates = [
+    '/Users/u/lobster-ai- desktop/lobster-ai-desktop',
+    '/Users/u/lobster-ai- desktop',
     '/Users/u/lobster-ai-desktop/lobster-ai-desktop',
     '/Users/u/lobster-ai-desktop',
+    path.join(home, 'lobster-ai- desktop', 'lobster-ai-desktop'),
+    path.join(home, 'lobster-ai- desktop'),
     path.join(home, 'lobster-ai-desktop', 'lobster-ai-desktop'),
     path.join(home, 'lobster-ai-desktop')
   ]
@@ -26,7 +30,10 @@ function findLocalProject() {
     if (!dir) continue
     const pkg = path.join(dir, 'package.json')
     const main = path.join(dir, 'main.js')
-    if (fs.existsSync(pkg) && fs.existsSync(main)) return dir
+    if (fs.existsSync(pkg) && fs.existsSync(main)) {
+      log(`Found Lobster project: ${dir}`)
+      return dir
+    }
   }
   return null
 }
