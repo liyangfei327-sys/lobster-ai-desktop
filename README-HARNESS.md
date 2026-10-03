@@ -1,0 +1,1 @@
+Lobster AI Harness bundle: installs the Harness plugin and launches the original Electron desktop pet.
