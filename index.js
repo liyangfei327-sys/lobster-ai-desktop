@@ -14,11 +14,12 @@ function log(message) {
 }
 
 function findLocalProject() {
+  const home = process.env.HOME || '';
   const candidates = [
     '/Users/u/lobster-ai-desktop/lobster-ai-desktop',
     '/Users/u/lobster-ai-desktop',
-    path.join(process.env.HOME || '', 'lobster-ai-desktop', 'lobster-ai-desktop'),
-    path.join(process.env.HOME || '', 'lobster-ai-desktop')
+    path.join(home, 'lobster-ai-desktop', 'lobster-ai-desktop'),
+    path.join(home, 'lobster-ai-desktop')
   ];
 
   for (const dir of candidates) {
@@ -30,12 +31,19 @@ function findLocalProject() {
   return null;
 }
 
+function escapeAppleScriptString(value) {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"');
+}
+
 function launchLocalProject(projectDir) {
   log(`Launching local project: ${projectDir}`);
 
-  // Use macOS Terminal so Electron runs in a normal desktop session.
-  const command = `cd ${JSON.stringify(projectDir)} && npm start`;
-  child = spawn('/usr/bin/open', ['-a', 'Terminal', '--args', '-e', command], {
+  const shellCommand = `cd ${JSON.stringify(projectDir)} && npm start`;
+  const script = `tell application "Terminal" to do script "${escapeAppleScriptString(shellCommand)}"`;
+
+  child = spawn('/usr/bin/osascript', ['-e', script], {
     detached: true,
     stdio: 'ignore'
   });
